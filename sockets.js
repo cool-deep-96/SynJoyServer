@@ -82,7 +82,7 @@ const socketServer = (io) => {
             
             const userSocketId = userSocketMap.get(userName);
             if(userSocketId?.room_id){
-                io.to(userSocketId.room_id).emit('pause')
+                io.to(userSocketId.room_id).emit('pause', userName)
             }else{
 
             }
@@ -92,7 +92,7 @@ const socketServer = (io) => {
             const userSocketId = userSocketMap.get(userName);
             
             if(userSocketId?.room_id){
-                io.to(userSocketId.room_id).emit('play', second);
+                io.to(userSocketId.room_id).emit('play', second, userName);
             }else{
 
             }
