@@ -78,19 +78,24 @@ const socketServer = (io) => {
 
         });
 
-        socket.on('pause', (userName) => {
-            
+        socket.on('pause', (second, userName) => {
             const userSocketId = userSocketMap.get(userName);
             if(userSocketId?.room_id){
-                io.to(userSocketId.room_id).emit('pause', userName)
+                io.to(userSocketId.room_id).emit('pause',second,userName)
             }else{
 
             }
         });
 
+        socket.on('videoId', (videoId, userName)=>{
+            const userSocketId= userSocketMap.get(userName);
+            if(userSocketId?.room_id){
+                io.to(userSocketId.room_id).emit('videoId', videoId , userName);
+            }
+        });
+
         socket.on('play', (second, userName) => {
             const userSocketId = userSocketMap.get(userName);
-            
             if(userSocketId?.room_id){
                 io.to(userSocketId.room_id).emit('play', second, userName);
             }else{
