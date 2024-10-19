@@ -1,49 +1,51 @@
-import {createServer} from 'http';
+import { createServer } from 'http';
 import { Server } from "socket.io";
 import { config } from 'dotenv';
-import  express  from 'express';
-import {connect} from './setups/mongoDB.js';
+import express, { Request, Response } from 'express';
+import { dbConnect } from './setups/mongo_db';
 import cors from 'cors';
-import { socketServer } from './sockets.js';
-import { roomRoutes } from './routes/roomRoutes.js';
+import { roomRoutes } from './routes/room_routes';
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
+import { socketServer } from './sockets';
+import logger from './logging/logger';
 
 const __dir = path.resolve()
 const sslAuthFile = path.join(__dir, '/5DA733F0C07C144D802078B0FC9DEE0C.txt')
-// const key = fs.readFileSync('private.key');
-// const cert = fs.readFileSync('certificate.crt');
+const key = fs.readFileSync('src/private.key');
+const cert = fs.readFileSync('src/certificate.crt');
 
-// const cred = {
-//     key,
-//     cert
-// }
+const cred = {
+    key,
+    cert
+}
 
 
 config();
-connect();
+dbConnect();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 app.use(express.urlencoded(
-    {extended: true}
+    { extended: true }
 
 ))
 
-const port= process.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 
 const httpsServer = createServer(app);
-const io = new Server(httpsServer, {
+// const httpsServer = https.createServer(cred, app);
+export const io: Server = new Server(httpsServer, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
     }
 });
 
-socketServer(io);
+// socketServer(io);
 
 app.use('/.well-known/pki-validation/5DA733F0C07C144D802078B0FC9DEE0C.txt', (req, res) => {
     res.sendFile(sslAuthFile);
@@ -51,8 +53,9 @@ app.use('/.well-known/pki-validation/5DA733F0C07C144D802078B0FC9DEE0C.txt', (req
 
 app.use('/api/roomRoutes', roomRoutes);
 
-app.get('/',(req, res)=>{
-    console.log('oh hoo !')
+app.get('/', (req: Request, res: Response) => {
+
+    logger.info('ohooo ')
     res.send('everything is ok');
 })
 
@@ -68,6 +71,6 @@ app.get('/',(req, res)=>{
 
 
 httpsServer.listen(port, () => {
-    console.log('Server is running on' , port );
+    logger.info(`Server is running on ${port}`);
 })
 

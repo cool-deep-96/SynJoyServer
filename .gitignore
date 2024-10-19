@@ -1,4 +1,6 @@
 .env
 node_modules
-/certificate.crt 
-/private.key
+src/certificate.crt 
+src/private.key
+dist
+src/logging/app.log
