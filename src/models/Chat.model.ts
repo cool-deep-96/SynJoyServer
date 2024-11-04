@@ -1,14 +1,15 @@
-import mongoose, { models, Schema, Types, Document } from "mongoose";
+import mongoose, { models, Schema, Types, Document, Date } from "mongoose";
 import { IRoom } from "./Room.model";
 import { IUser } from "./User.model";
 
 export interface IChat extends Document {
     message: string;
     room: Types.ObjectId | IRoom;
-    user: Types.ObjectId | IUser;
+    sentBy: Types.ObjectId | IUser;
+    expireAt: Date
   }
 
-const ChatSchema = new mongoose.Schema(
+const ChatSchema = new mongoose.Schema<IChat>(
     {
         message: {
             type: String,
@@ -19,11 +20,16 @@ const ChatSchema = new mongoose.Schema(
             ref: 'Room',
             required: true,
         },
-        user: {
+        sentBy: {
             type: Schema.Types.ObjectId,
             ref: 'User',
             required: true,
-        }
+        },
+        expireAt: {
+            type: Date,
+            default: Date.now,
+            index: { expires: 0 },
+          },
     },
     { timestamps: true }
 );

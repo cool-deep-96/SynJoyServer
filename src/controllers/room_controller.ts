@@ -1,66 +1,81 @@
 import { Request, Response } from "express";
 import {
-  createRoomService,
-  getMembersOfRoom,
-  getRoomService,
-  joinRoomService,
-  requestRoomService,
-} from "../services/room_service";
-import { createUserService, getUserService, updateExpireAtUserService } from "../services/user_service";
-import { Types } from "mongoose";
+  CreateRoomPayload,
+  CustomRequest,
+  JoinRoomPayload,
+  Member,
+  TokenData,
+} from "../common/interfaces";
+import { generateJwtToken } from "../utils/encryption/jwt";
+import {
+  checkingRoomAndUser,
+  emitApprovalToUser,
+  emitJoinRequest,
+  emitJoinedSyncToRoom,
+  generateTokenData,
+  handleError,
+  validateRoomAndUser,
+} from "../utils/room_controller/room_controller";
 import { validateCreateRoomPayload } from "../utils/validate";
-import { CreateRoomPayload, JoinRoomPayload } from "../common/interfaces";
-import { userSocketMap } from "../sockets";
-import { io } from "../app";
 import logger from "../logging/logger";
+import { hashText } from "../utils/encryption/bcrypt";
+import {
+  createUserService,
+  getUserService,
+  updateExpireAtUserService,
+} from "../services/user_service";
+import {
+  createRoom,
+  deleteRoomById,
+  getRoomById,
+  getRoomMembers,
+  joinRoom,
+  leaveRoom,
+  requestToJoinRoom,
+} from "../services/room_service";
+import { Types } from "mongoose";
+import { deleteAllChatsInRoom } from "../services/chat_service";
+import { compareSync } from "bcryptjs";
 
-export const createRoom = async (req: Request, res: Response) => {
+export const createRoomR = async (req: Request, res: Response) => {
   try {
     const { createRoomPayload } = req.body;
     validateCreateRoomPayload(createRoomPayload as CreateRoomPayload);
 
-    const isRoomExist = await getRoomService(createRoomPayload.roomId);
-    if (isRoomExist) {
-      throw new Error(`roomId already exist: ${createRoomPayload.roomId}`);
-    }
+    const { roomId, userName, password } = createRoomPayload;
 
-    const isUserExist = await getUserService(createRoomPayload.userName);
-    if (isUserExist) {
-      throw new Error(`userName already exist: ${createRoomPayload.userName}`);
-    }
+    // Check if room or user already exists
+    if (await getRoomById(roomId))
+      throw new Error(`RoomId already exists: ${roomId}`);
+    if (await getUserService(userName))
+      throw new Error(`UserName already exists: ${userName}`);
 
-    const user = await createUserService(
-      createRoomPayload.userName,
-      createRoomPayload.password
-    );
-
-    const room = await createRoomService(
-      createRoomPayload.roomId,
-      user._id as Types.ObjectId,
+    const hashPassword = await hashText(password);
+    const user = await createUserService(userName, hashPassword);
+    const room = await createRoom(
+      roomId,
+      user.id as Types.ObjectId,
       user.expireAt
     );
 
-    const payload = {
-      _id: room._id,
-      roomId: createRoomPayload.roomId,
-      userName: createRoomPayload.userName,
-      password: user.password,
+    const tokenData: TokenData = {
+      id: user.id,
+      roomId,
+      userName,
+      isMember: true,
+      isOwner: true,
+      expireAt: user.expireAt,
     };
+    const jwtToken = generateJwtToken(tokenData);
 
-    logger.info("Room created successfully", { payload });
+    logger.info("Room created successfully", { roomId, userName });
     res.status(200).json({
       success: true,
-      payload,
-      message: `Room '${room.roomId}' is created successfully`,
+      message: `Room '${room.roomId}' created`,
+      jwtToken,
     });
   } catch (error) {
-    logger.error(
-      error instanceof Error ? error.message : "Something Went Wrong"
-    );
-    res.status(400).json({
-      success: false,
-      message: error instanceof Error ? error.message : "Something Went Wrong",
-    });
+    handleError(res, error);
   }
 };
 
@@ -69,199 +84,237 @@ export const requestJoinRoom = async (req: Request, res: Response) => {
     const { joinRoomPayload } = req.body;
     validateCreateRoomPayload(joinRoomPayload as JoinRoomPayload);
 
-    const room = await getRoomService(joinRoomPayload.roomId);
-    if (!room) {
-      throw new Error(`Room not found for roomId: ${joinRoomPayload.roomId}`);
-    }
-
-    let user = await getUserService(joinRoomPayload.userName);
-    if (user) {
-      if (user.password !== joinRoomPayload.password) {
-        throw new Error(
-          `Invalid password for userName: ${joinRoomPayload.userName}`
-        );
-      }
-
-      const isUserJoined = (room.memberIds as Types.ObjectId[]).includes(
-        user._id as Types.ObjectId
-      );
-      if (isUserJoined) {
-        const payload = {
-          _id: user._id,
-          roomId: room.roomId,
-          userName: joinRoomPayload.userName,
-          password: user.password,
-        };
-        logger.info(
-          `${joinRoomPayload.userName} is already a member of the room.`,
-          { payload }
-        );
-        return res.status(200).json({
-          success: true,
-          message: `${joinRoomPayload.userName} is already a member of the room.`,
-          payload,
-        });
-      }
-    } else {
-      user = await createUserService(
-        joinRoomPayload.userName,
-        joinRoomPayload.password,
-        room.expireAt
-      );
-      await requestRoomService(user._id as Types.ObjectId, room.roomId);
-    }
-
-    // Emit approval request to the room owner.
-    const ownerSocket = userSocketMap.get(room.ownerId as Types.ObjectId);
-    if (ownerSocket) {
-      const payload = {
-        _id: user._id,
-        userName: user.userName,
-        roomId: room.roomId,
-      };
-      logger.info("Emit approval request to the room owner", payload);
-      io.to(ownerSocket.socketId).emit("join-request-channel", payload);
-    }
-    const payload = {
-      _id: user._id,
-      userName: user.userName,
-      password: user.password,
-      roomId: room.roomId,
-    };
-    logger.info("Request to join room processed", payload);
-    return res.status(200).json({
-      success: true,
-      message: "Approval request sent to room owner. Please wait for approval.",
-      payload,
-    });
-  } catch (error) {
-    logger.error(
-      error instanceof Error ? error.message : "Something Went Wrong"
+    let { room, user } = await checkingRoomAndUser(
+      joinRoomPayload.roomId,
+      joinRoomPayload.userName
     );
-    res.status(400).json({
-      success: false,
-      message: error instanceof Error ? error.message : "Something Went Wrong",
-    });
-  }
-};
 
-export const admitRoom = async (req: Request, res: Response) => {
-  try {
-    const { joinRoomPayload, userId } = req.body;
-    validateCreateRoomPayload(joinRoomPayload as JoinRoomPayload);
-
-    const room = await getRoomService(joinRoomPayload.roomId);
-    if (!room) {
+    if (!room)
       throw new Error(`Room not found for roomId: ${joinRoomPayload.roomId}`);
+
+    if (user && !compareSync(joinRoomPayload.password, user?.password)) {
+      throw new Error(
+        `Incorrect password for userName: ${joinRoomPayload.userName}`
+      );
     }
 
-    let user = await getUserService(joinRoomPayload.userName);
-    if (user) {
-      if (user.password !== joinRoomPayload.password) {
-        throw new Error(
-          `Invalid password for userName: ${joinRoomPayload.userName}`
-        );
-      }
-
-      const isOwner = (room.ownerId as Types.ObjectId).equals(
-        joinRoomPayload._id as Types.ObjectId
-      );
-      if (isOwner) {
-        await joinRoomService(userId, joinRoomPayload.roomId)
-        await updateExpireAtUserService(userId, room.expireAt)
-        const payload = {
-          _id: user._id,
-          roomId: room.roomId,
-          userName: joinRoomPayload.userName,
-        };
-        logger.info(
-          `${joinRoomPayload.userName} is joined as member of the room.`,
-          { payload }
-        );
-        return res.status(200).json({
-          success: true,
-          message: `${joinRoomPayload.userName} is joined as member of the room.`,
-          payload,
-        });
-      }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: `Your are not authorized to admit new member to roomId: ${joinRoomPayload.roomId}.`,
+    // Check if user is already a member
+    if (user && (room.memberIds as Types.ObjectId[]).includes(user.id)) {
+      const isOwner = (room.ownerId as Types.ObjectId).equals(user.id);
+      const tokenData = generateTokenData(user, room.roomId, isOwner, true);
+      const jwtToken = generateJwtToken(tokenData);
+      return res.status(200).json({
+        success: true,
+        message: `${user.userName} is already a member`,
+        jwtToken,
       });
     }
 
-    // Emit approval request to the room owner.
-    const ownerSocket = userSocketMap.get(room.ownerId as Types.ObjectId);
-    if (ownerSocket) {
-      const payload = {
-        _id: user._id,
-        userName: user.userName,
-        roomId: room.roomId,
-      };
-      logger.info("Emit approval request to the room owner", payload);
-      io.to(ownerSocket.socketId).emit("join-request-channel", payload);
+    if (!user) {
+      // Create user if not found
+      const hashPassword = await hashText(joinRoomPayload.password);
+      user = await createUserService(
+        joinRoomPayload.userName,
+        hashPassword,
+        room.expireAt
+      );
     }
-    const payload = {
-      _id: user._id,
-      userName: user.userName,
-      password: user.password,
+
+    await requestToJoinRoom(user.id as Types.ObjectId, room.roomId);
+    emitJoinRequest(room, user);
+
+    const tokenData = generateTokenData(user, room.roomId, false, false);
+    const jwtToken = generateJwtToken(tokenData);
+    logger.info("Request to join room sent", {
       roomId: room.roomId,
-    };
-    logger.info("Request to join room processed", payload);
-    return res.status(200).json({
+      userName: user.userName,
+    });
+    res.status(200).json({
       success: true,
-      message: "Approval request sent to room owner. Please wait for approval.",
-      payload,
+      message: "Approval request sent to owner",
+      jwtToken,
     });
   } catch (error) {
-    logger.error(
-      error instanceof Error ? error.message : "Something Went Wrong"
-    );
-    res.status(400).json({
-      success: false,
-      message: error instanceof Error ? error.message : "Something Went Wrong",
-    });
+    handleError(res, error);
   }
 };
 
-export const getUser = async (req: Request, res: Response) => {
+export const joinRoomR = async (req: CustomRequest, res: Response) => {
   try {
-    const { roomId, userName } = req.body;
-    const room = await getRoomService(roomId);
-    if (!room) {
-      throw new Error(`Room not found for roomId: ${roomId}`);
-    }
-    const user = await getUserService(userName);
-    if (user) {
-      const isUserJoined = (room.memberIds as Types.ObjectId[]).includes(
-        user._id as Types.ObjectId
-      );
-      if (isUserJoined) {
-        const room = await getMembersOfRoom(roomId);
-        const payload = {
-          members: room?.memberIds || [],
-          requestedMembers: room?.requestedMemberIds || [],
-        };
-        logger.info(`Members sent to userName: ${user}`);
-        return res.status(200).json({
-          success: true,
-          message: `users fetched successfully`,
-          payload,
-        });
-      } else {
-        throw new Error(`Not a member of roomId: ${roomId}, Request to Join`);
-      }
-    } else {
-      throw new Error("userName does not exist");
-    }
-  } catch (error) {
-    logger.error(
-      error instanceof Error ? error.message : "Something Went Wrong"
+    const tokenData = req.user as TokenData;
+
+    const { room, user } = await validateRoomAndUser(
+      tokenData.roomId,
+      tokenData.userName
     );
-    res.status(400).json({
-      success: false,
-      message: error instanceof Error ? error.message : "Something Went Wrong",
+
+    if ((room.memberIds as Types.ObjectId[]).includes(user.id)) {
+      const isOwner = (room.ownerId as Types.ObjectId).equals(user.id);
+      const tokenData = generateTokenData(user, room.roomId, isOwner, true);
+      const jwtToken = generateJwtToken(tokenData);
+      return res
+        .status(200)
+        .json({ success: true, message: "Already a member", jwtToken });
+    }
+
+    await requestToJoinRoom(user.id, room.roomId);
+    emitJoinRequest(room, user);
+
+    const tokenDataNew = generateTokenData(user, room.roomId, false, false);
+    const jwtToken = generateJwtToken(tokenDataNew);
+    res
+      .status(200)
+      .json({ success: true, message: "Approval request sent", jwtToken });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const admitUserToRoom = async (req: CustomRequest, res: Response) => {
+  try {
+    const tokenData = req.user as TokenData;
+    const { userId, userName } = req.body;
+
+    const { room, user } = await validateRoomAndUser(
+      tokenData.roomId,
+      userName
+    );
+
+    const isOwner = (room.ownerId as Types.ObjectId).equals(
+      new Types.ObjectId(tokenData.id)
+    );
+    const isRequested = (room.requestedMemberIds as Types.ObjectId[]).includes(
+      userId as Types.ObjectId
+    );
+
+    if (!isOwner || !isRequested)
+      throw new Error("Unauthorized to admit new members");
+
+    await joinRoom(userId, tokenData.roomId);
+    await updateExpireAtUserService(userId, room.expireAt);
+    emitApprovalToUser(userId, userName, room, true, false);
+    emitJoinedSyncToRoom(userId, userName, room.roomId, true, false);
+
+    res
+      .status(200)
+      .json({ success: true, message: `${userName} joined the room` });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const removeUserFromRoom = async (req: CustomRequest, res: Response) => {
+  try {
+    const tokenData = req.user as TokenData;
+    const { userId, userName } = req.body;
+
+    const { room } = await validateRoomAndUser(tokenData.roomId, userName);
+
+    const isSelf = new Types.ObjectId(tokenData.id).equals(
+      userId as Types.ObjectId
+    );
+
+    const isOwner = (room.ownerId as Types.ObjectId).equals(
+      new Types.ObjectId(tokenData.id)
+    );
+
+    if ((room.ownerId as Types.ObjectId).equals(userId))
+      throw new Error("Your are owner can't remove yourself");
+
+    if (!(isOwner || isSelf))
+      throw new Error("Unauthorized to remove a members/requestedMembers");
+
+    logger.debug(userId);
+    leaveRoom(userId, tokenData.roomId);
+    emitApprovalToUser(userId, userName, room, false, false);
+    emitJoinedSyncToRoom(userId, userName, room.roomId, false, false);
+
+    res
+      .status(200)
+      .json({ success: true, message: `${userName} removed from the room` });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const getMembersByRoomId = async (req: CustomRequest, res: Response) => {
+  try {
+    const tokenData = req.user as TokenData;
+
+    const { room } = await validateRoomAndUser(
+      tokenData.roomId,
+      tokenData.userName
+    );
+
+    const isMember = (room.memberIds as Types.ObjectId[]).includes(
+      new Types.ObjectId(tokenData.id)
+    );
+
+    if (!isMember)
+      throw new Error("Unauthorized to get a members/requestedMembers list");
+
+    const roomWithMembers = await getRoomMembers(tokenData.roomId);
+
+    if (!roomWithMembers) {
+      throw new Error(`RoomId ${tokenData.roomId} doesn't exits`);
+    }
+
+    // Combine memberIds (isMember: true) and requestedMemberIds (isMember: false)
+    const joinedMembers: Member[] = [
+      ...roomWithMembers.memberIds.map((member: any) => ({
+        id: member.id.toString(),
+        userName: member.userName,
+        roomId: room.roomId,
+        isMember: true,
+        isOwner: room.ownerId.equals(member.id),
+      })),
+    ];
+    const requestedMembers: Member[] = [
+      ...roomWithMembers.requestedMemberIds.map((member: any) => ({
+        id: member.id.toString(),
+        userName: member.userName,
+        roomId: room.roomId,
+        isMember: false,
+        isOwner: room.ownerId.equals(member.id),
+      })),
+    ];
+
+    res.status(200).json({
+      success: true,
+      message: `members fetched for the roomId ${tokenData.roomId}`,
+      payload: {
+        requestedMembers,
+        joinedMembers,
+      },
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const deleteRoom = async (req: CustomRequest, res: Response) => {
+  try {
+    const tokenData = req.user as TokenData;
+
+    const { room } = await validateRoomAndUser(
+      tokenData.roomId,
+      tokenData.userName
+    );
+
+    const isOwner = (room.ownerId as Types.ObjectId).equals(
+      new Types.ObjectId(tokenData.id)
+    );
+
+    if (!isOwner) throw new Error("Unauthorized to delete a room");
+
+    await deleteAllChatsInRoom(room.roomId);
+    await deleteRoomById(room.roomId);
+
+    res.status(200).json({
+      success: true,
+      message: `All chat are deleted \n RoomId : ${room.roomId} deleted`,
+    });
+  } catch (error) {
+    handleError(res, error);
   }
 };

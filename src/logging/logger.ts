@@ -48,4 +48,9 @@ const logger: Logger = createLogger({
   exitOnError: false, // Prevents the logger from exiting on errors
 });
 
+// if (process.env.NODE_ENV === 'development') {
+//   logger.add(new transports.Console({
+//     format: format.simple(),
+//   }));
+// }
 export default logger;

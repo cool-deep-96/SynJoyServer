@@ -8,8 +8,10 @@ import { roomRoutes } from './routes/room_routes';
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { socketServer } from './sockets';
 import logger from './logging/logger';
+import { socketServer } from '../sokets2';
+import { tokenRoutes } from './routes/token_routes';
+import { chatRoutes } from './routes/chat_routes';
 
 const __dir = path.resolve()
 const sslAuthFile = path.join(__dir, '/5DA733F0C07C144D802078B0FC9DEE0C.txt')
@@ -45,13 +47,15 @@ export const io: Server = new Server(httpsServer, {
     }
 });
 
-// socketServer(io);
+socketServer(io);
 
 app.use('/.well-known/pki-validation/5DA733F0C07C144D802078B0FC9DEE0C.txt', (req, res) => {
     res.sendFile(sslAuthFile);
 })
 
-app.use('/api/roomRoutes', roomRoutes);
+app.use('/api/room', roomRoutes);
+app.use('/api/token', tokenRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/', (req: Request, res: Response) => {
 

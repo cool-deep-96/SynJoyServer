@@ -1,88 +1,68 @@
-import { Types } from "mongoose";
-import { io } from "./src/app";
-import { getRoomService, joinRoomService } from "./src/services/room_service";
+import { SycVideoPayload } from "./src/common/interfaces";
+import { SOCKET_CHANNEL } from "./src/common/socket_channels";
+import logger from "./src/logging/logger";
+import { Server } from "socket.io";
 
-export const userSocketMap = new Map<Types.ObjectId, { socketId: string; roomId?: string }>();
+export const userSocketMap = new Map<
+  string,
+  { socketId: string; roomId?: string }
+>();
 
-io.on("connection", (socket) => {
-  // Listen for approval from the room owner.
+interface Payload {
+  userId: string;
+  userName: string;
+  roomId: string;
+}
 
-  socket.on('approve-join-channel', () => {
-    
-  })
+export const socketServer = (io: Server) => {
+  io.on("connection", (socket) => {
+    logger.info(`New client connected: ${socket.id}`);
 
-  socket.on(
-    "join-approval-channel",
-    async ({ userName, userId, roomId, isApproved, ownerId }, callback) => {
-      try {
-        console.log("hoo")
-        const room = await getRoomService(roomId);
-        if (!room) {
-          return callback(
-            { success: false, message: `Room not found for roomId: ${roomId}` },
-            null
-          );
-        }
+    socket.on("register", (payload: Payload) => {
+      userSocketMap.set(payload.userId, {
+        socketId: socket.id,
+        roomId: payload.roomId || undefined,
+      });
 
-        if (room.ownerId !== ownerId) {
-          return callback(
-            { success: false, message: `Room not found for roomId: ${roomId}` },
-            null
-          );
-        }
-
-        const userSocketInfo = userSocketMap.get(userId);
-
-        if (isApproved) {
-          // Add user to the room.
-          await joinRoomService(userId, room.roomId);
-          if (!userSocketInfo) {
-            return callback(
-              { success: false, message: "User is not available for approval" },
-              null
-            );
-          }
-
-          // Notify the user that their request was approved.
-          io.to(userSocketInfo.socketId).emit("join-approval-channel", {
-            success: true,
-            message: `${userName} joined successfully.`,
-            payload: {
-              _id: room._id,
-              roomId: room.roomId,
-              userName: userName,
-            },
-          });
-        } else {
-          if (!userSocketInfo) {
-            return callback(
-              { success: false, message: "User is not available for approval" },
-              null
-            );
-          }
-          // Notify the user that their request was declined.
-          io.to(userSocketInfo.socketId).emit("join-approval-channel", {
-            success: false,
-            message: "Request was declined.",
-          });
-        }
-
-        // Remove the temporary socket mapping.
-        userSocketMap.delete(userName);
-
-        callback(null, {
-          success: true,
-          message: "Approval processed successfully",
-        });
-      } catch (error) {
-        callback(
-          {
-            success: false,
-            message: "An error occurred during approval processing",
-          },
-          null
-        );
+      if (payload.roomId) {
+        socket.join(payload.roomId);
       }
-    }
-  );
-});
+
+      logger.info(
+        `User registered: ${payload.userId} (socket ID: ${socket.id}) in room: ${payload.roomId}`
+      );
+    });
+
+    socket.on(SOCKET_CHANNEL.SYNC_VIDEO_CHANNEL, (payload: SycVideoPayload) => {
+      if (payload.tokenData && payload.tokenData.isMember) {
+        io.to(payload.tokenData.roomId).emit(
+          SOCKET_CHANNEL.SYNC_VIDEO_CHANNEL,
+          payload
+        );
+        logger.info("syn-video-channel", {payload})
+      }
+    });
+
+    // Handle disconnection
+    socket.on("disconnect", () => {
+      const userId = [...userSocketMap.entries()].find(
+        ([, value]) => value.socketId === socket.id
+      )?.[0];
+
+      if (userId) {
+        const roomId = userSocketMap.get(userId)?.roomId;
+        userSocketMap.delete(userId);
+        logger.info(`User disconnected: ${userId}`);
+
+        if (roomId) {
+          // emitRemovalToRoom(userId, roomId);
+          logger.info(
+            `User removed from room ${roomId}, and other users in the room are notified`
+          );
+        }
+      }
+
+      logger.info(`Client disconnected: ${socket.id}`);
+    });
+  });
+};

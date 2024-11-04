@@ -33,8 +33,8 @@ const RoomSchema = new mongoose.Schema<IRoom>(
     requestedMemberIds: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'User'
-      }
+        ref: "User",
+      },
     ],
     chatIds: [
       {
@@ -51,29 +51,13 @@ const RoomSchema = new mongoose.Schema<IRoom>(
   { timestamps: true }
 );
 
-// Pre middleware to handle cascading deletes when using findOneAndDelete or findByIdAndDelete
+// Cascade delete related chats when the room is deleted
 RoomSchema.pre("findOneAndDelete", async function (next) {
-  try {
-    const room = await this.model.findOne(this.getFilter());
-    if (room) {
-      await Chat.deleteMany({ _id: { $in: room.chat } });
-      await User.deleteMany({ _id: { $in: room.userName } });
-    }
-    next();
-  } catch (error) {
-    next(error as Error);
+  const room = await this.model.findOne(this.getFilter());
+  if (room) {
+    await Chat.deleteMany({ room: room._id });
   }
+  next();
 });
-
-// Optional: Pre middleware for document-based remove
-// RoomSchema.pre("remove", async function (next) {
-//   try {
-//     await Chat.deleteMany({ _id: { $in: this.chat } });
-//     await User.deleteMany({ _id: { $in: this.userName } });
-//     next();
-//   } catch (error) {
-//     next(error);
-//   }
-// });
 
 export const Room = mongoose.model<IRoom>("Room", RoomSchema);

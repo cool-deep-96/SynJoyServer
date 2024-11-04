@@ -5,7 +5,7 @@ import { userSocketMap } from "../sockets";
 const joiningRequest = async (socketMessage: SocketMessage, callback) => {
     try {
         const {roomId, userName} = socketMessage
-        const room = await Room.findOne({ room_id: roomId })
+        const room = await Room.findOne({ roomid: roomId })
         if (!room) {
             throw new Error('Room Not Found');
         } else {

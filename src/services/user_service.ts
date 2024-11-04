@@ -1,5 +1,4 @@
 import { Types } from "mongoose";
-import { Room } from "../models/Room.model";
 import User, { IUser } from "../models/User.model";
 
 export const getUserService = async (
@@ -37,3 +36,4 @@ export const updateExpireAtUserService = async (
   );
   return userDb;
 };
+
