@@ -74,9 +74,10 @@ export const emitJoinRequest = (room: any, user: any) => {
 export const emitApprovalToUser = (
   userId: string,
   userName: string,
-  room: any,
+  roomId: string,
   isMember: boolean,
-  isOwner: boolean
+  isOwner: boolean,
+  isSelf?: boolean,
 ) => {
   logger.info("userId ", { userId });
   const userSocket = userSocketMap.get(userId);
@@ -84,11 +85,12 @@ export const emitApprovalToUser = (
     const payload: Member = {
       id: userId,
       userName,
-      roomId: room.roomId,
+      roomId,
       isMember,
       isOwner,
+      isSelf
     };
-    io.to(userSocket.socketId).emit("join-approve-channel", payload);
+    io.to(userSocket.socketId).emit(SOCKET_CHANNEL.JOIN_APPROVE_CHANNEL, payload);
     logger.info("Emit approval status to new member", payload);
   } else {
     logger.error("User socket not found", { userId });
@@ -100,7 +102,8 @@ export const emitJoinedSyncToRoom = (
   userName: string,
   roomId: string,
   isMember: boolean,
-  isOwner: boolean
+  isOwner: boolean,
+  isSelf?: boolean
 ) => {
   const payload: Member = {
     id: userId,
@@ -108,6 +111,7 @@ export const emitJoinedSyncToRoom = (
     roomId,
     isMember,
     isOwner,
+    isSelf
   };
   io.to(roomId).emit(SOCKET_CHANNEL.SYNC_JOINED_LIST, payload);
   logger.info(
@@ -120,7 +124,7 @@ export const emitChatSyncToRoom = (
   sentById: string,
   sentByUserName: string,
   text: string,
-  time: number,
+  time: string,
   isRemoved: boolean,
   roomId: string
 ) => {

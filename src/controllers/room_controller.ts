@@ -36,6 +36,7 @@ import {
 import { Types } from "mongoose";
 import { deleteAllChatsInRoom } from "../services/chat_service";
 import { compareSync } from "bcryptjs";
+import { IUser } from "../models/User.model";
 
 export const createRoomR = async (req: Request, res: Response) => {
   try {
@@ -73,6 +74,25 @@ export const createRoomR = async (req: Request, res: Response) => {
       success: true,
       message: `Room '${room.roomId}' created`,
       jwtToken,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+export const getRoomR = async (req: Request, res: Response) => {
+  try {
+    const { roomId } = req.params;
+    console.log("params",req.params)
+    const { room } = await checkingRoomAndUser(roomId, "");
+    if (!room) throw new Error(`Room not found for roomId: ${roomId}`);
+    return res.status(200).json({
+      success: true,
+      message: `RoomId : ${roomId} found`,
+      payload: {
+        roomId,
+        owner: (room.ownerId as IUser).userName,
+      },
     });
   } catch (error) {
     handleError(res, error);
@@ -192,7 +212,7 @@ export const admitUserToRoom = async (req: CustomRequest, res: Response) => {
 
     await joinRoom(userId, tokenData.roomId);
     await updateExpireAtUserService(userId, room.expireAt);
-    emitApprovalToUser(userId, userName, room, true, false);
+    emitApprovalToUser(userId, userName, room.roomId, true, false);
     emitJoinedSyncToRoom(userId, userName, room.roomId, true, false);
 
     res
@@ -224,10 +244,9 @@ export const removeUserFromRoom = async (req: CustomRequest, res: Response) => {
     if (!(isOwner || isSelf))
       throw new Error("Unauthorized to remove a members/requestedMembers");
 
-    logger.debug(userId);
     leaveRoom(userId, tokenData.roomId);
-    emitApprovalToUser(userId, userName, room, false, false);
-    emitJoinedSyncToRoom(userId, userName, room.roomId, false, false);
+    emitApprovalToUser(userId, userName, room.roomId, false, false, isSelf);
+    emitJoinedSyncToRoom(userId, userName, room.roomId, false, false, isSelf);
 
     res
       .status(200)

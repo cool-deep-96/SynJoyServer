@@ -87,6 +87,7 @@ interface Member {
   roomId?: string;
   isMember: boolean;
   isOwner: boolean;
+  isSelf?: boolean;
 }
 
 interface Message {
@@ -94,7 +95,7 @@ interface Message {
   sentById: string;
   sentByUserName: string;
   text: string;
-  time: number;
+  time: string;
   isRemoved: boolean;
 }
 

@@ -60,7 +60,7 @@ export const createChatController = async (
       user.id,
       user.userName,
       newChat.message,
-      0,
+      newChat.createdAt.toString(),
       false,
       room.roomId
     );
@@ -139,7 +139,7 @@ export const deleteChatController = async (
       chatDb.sentBy.id,
       (chatDb.sentBy as IUser).userName,
       chatDb.message,
-      0,
+      chatDb.createdAt.toString(),
       true,
       room.roomId
     );
@@ -167,7 +167,7 @@ export const getChatByRoomIdController = async (
   try {
     const user = req.user as TokenData;
 
-    if (!user || !user.isMember) {
+    if (!user) {
       throw new Error("User not approved to view chats.");
     }
 
@@ -188,12 +188,13 @@ export const getChatByRoomIdController = async (
       `Chats retrieved successfully for room: ${user.roomId} by user: ${user.userName}`,
       chats
     );
+
     const data: Message[] = chats.map((chat) => ({
       id: chat.id,
       sentById: chat.sentBy.id,
       sentByUserName: (chat.sentBy as IUser).userName,
       text: chat.message,
-      time: 0,
+      time: chat.createdAt.toString(),
       isRemoved: false,
     }));
 
@@ -267,7 +268,7 @@ export const updateChatController = async (
       sentById: chatDb.sentBy.id,
       sentByUserName: (chatDb.sentBy as IUser).userName,
       text: updatedChat.message,
-      time: 0,
+      time: updatedChat.createdAt.toString(),
       isRemoved: false,
     };
     emitChatSyncToRoom(
@@ -275,7 +276,7 @@ export const updateChatController = async (
       data.sentById,
       data.sentByUserName,
       data.text,
-      data.time,
+      data.time.toString(),
       false,
       user.roomId
     )
