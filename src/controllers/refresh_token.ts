@@ -42,9 +42,9 @@ export const getRefreshToken = async (req: CustomRequest, res: Response) => {
     // Generate the new JWT token
     const jwtToken = generateJwtToken(tokenData);
 
-    logger.info(
-      `New JWT token generated for user: ${user.userName}, roomId: ${user.roomId}`
-    );
+    //logger.info(
+    //   `New JWT token generated for user: ${user.userName}, roomId: ${user.roomId}`
+    // );
 
     return res.status(200).json({
       success: true,

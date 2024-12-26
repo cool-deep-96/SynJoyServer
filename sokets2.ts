@@ -16,7 +16,7 @@ interface Payload {
 
 export const socketServer = (io: Server) => {
   io.on("connection", (socket) => {
-    logger.info(`New client connected: ${socket.id}`);
+    //logger.info(`New client connected: ${socket.id}`);
 
     socket.on("register", (payload: Payload) => {
       userSocketMap.set(payload.userId, {
@@ -28,9 +28,9 @@ export const socketServer = (io: Server) => {
         socket.join(payload.roomId);
       }
 
-      logger.info(
-        `User registered: ${payload.userId} (socket ID: ${socket.id}) in room: ${payload.roomId}`
-      );
+      //logger.info(
+      //   `User registered: ${payload.userId} (socket ID: ${socket.id}) in room: ${payload.roomId}`
+      // );
     });
 
     socket.on(SOCKET_CHANNEL.SYNC_VIDEO_CHANNEL, (payload: SycVideoPayload) => {
@@ -39,7 +39,7 @@ export const socketServer = (io: Server) => {
           SOCKET_CHANNEL.SYNC_VIDEO_CHANNEL,
           payload
         );
-        logger.info("syn-video-channel", {payload})
+        //logger.info("syn-video-channel", {payload})
       }
     });
 
@@ -52,17 +52,17 @@ export const socketServer = (io: Server) => {
       if (userId) {
         const roomId = userSocketMap.get(userId)?.roomId;
         userSocketMap.delete(userId);
-        logger.info(`User disconnected: ${userId}`);
+        //logger.info(`User disconnected: ${userId}`);
 
         if (roomId) {
           // emitRemovalToRoom(userId, roomId);
-          logger.info(
-            `User removed from room ${roomId}, and other users in the room are notified`
-          );
+          //logger.info(
+          //   `User removed from room ${roomId}, and other users in the room are notified`
+          // );
         }
       }
 
-      logger.info(`Client disconnected: ${socket.id}`);
+      //logger.info(`Client disconnected: ${socket.id}`);
     });
   });
 };

@@ -59,7 +59,7 @@ app.use('/api/chat', chatRoutes);
 
 app.get('/', (req: Request, res: Response) => {
 
-    logger.info('ohooo ')
+    //logger.info('ohooo ')
     res.send('everything is ok');
 })
 
@@ -75,6 +75,6 @@ app.get('/', (req: Request, res: Response) => {
 
 
 httpsServer.listen(port, () => {
-    logger.info(`Server is running on ${port}`);
+    //logger.info(`Server is running on ${port}`);
 })
 

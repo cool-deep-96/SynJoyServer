@@ -69,7 +69,7 @@ export const createRoomR = async (req: Request, res: Response) => {
     };
     const jwtToken = generateJwtToken(tokenData);
 
-    logger.info("Room created successfully", { roomId, userName });
+    //logger.info("Room created successfully", { roomId, userName });
     res.status(200).json({
       success: true,
       message: `Room '${room.roomId}' created`,
@@ -145,10 +145,10 @@ export const requestJoinRoom = async (req: Request, res: Response) => {
 
     const tokenData = generateTokenData(user, room.roomId, false, false);
     const jwtToken = generateJwtToken(tokenData);
-    logger.info("Request to join room sent", {
-      roomId: room.roomId,
-      userName: user.userName,
-    });
+    //logger.info("Request to join room sent", {
+    //   roomId: room.roomId,
+    //   userName: user.userName,
+    // });
     res.status(200).json({
       success: true,
       message: "Approval request sent to owner",

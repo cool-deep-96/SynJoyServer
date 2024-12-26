@@ -51,9 +51,9 @@ export const createChatController = async (
 
     await pushMessageId(user.roomId, newChat.id);
 
-    logger.info(
-      `Chat created successfully for room: ${user.roomId}, by user: ${user.userName}`
-    );
+    //logger.info(
+    //   `Chat created successfully for room: ${user.roomId}, by user: ${user.userName}`
+    // );
 
     emitChatSyncToRoom(
       newChat.id,
@@ -130,9 +130,9 @@ export const deleteChatController = async (
     await deleteChat(new Types.ObjectId(messageId));
     await pullMessageId(user.roomId, new Types.ObjectId(messageId));
 
-    logger.info(
-      `Chat message with ID: ${messageId} deleted by user: ${user.userName}`
-    );
+    //logger.info(
+    //   `Chat message with ID: ${messageId} deleted by user: ${user.userName}`
+    // );
 
     emitChatSyncToRoom(
       chatDb.id,
@@ -184,10 +184,10 @@ export const getChatByRoomIdController = async (
     }
     const chats = await getChatsByRoom(room.id);
 
-    logger.info(
-      `Chats retrieved successfully for room: ${user.roomId} by user: ${user.userName}`,
-      chats
-    );
+    //logger.info(
+    //   `Chats retrieved successfully for room: ${user.roomId} by user: ${user.userName}`,
+    //   chats
+    // );
 
     const data: Message[] = chats.map((chat) => ({
       id: chat.id,
@@ -260,9 +260,9 @@ export const updateChatController = async (
       throw new Error("Failed to update chat message.");
     }
 
-    logger.info(
-      `Chat message with ID: ${messageId} updated by user: ${user.userName}`
-    );
+    //logger.info(
+    //   `Chat message with ID: ${messageId} updated by user: ${user.userName}`
+    // );
     const data: Message = {
       id: updatedChat.id,
       sentById: chatDb.sentBy.id,

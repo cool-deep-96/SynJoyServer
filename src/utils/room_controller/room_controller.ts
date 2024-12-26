@@ -64,7 +64,7 @@ export const emitJoinRequest = (room: any, user: any) => {
       isOwner: false,
     };
     io.to(ownerSocket.socketId).emit("join-request-channel", payload);
-    logger.info("Emit approval request to room owner", payload);
+    //logger.info("Emit approval request to room owner", payload);
   } else {
     logger.error("Owner socket not found", { ownerId: room.ownerId.id });
   }
@@ -79,7 +79,7 @@ export const emitApprovalToUser = (
   isOwner: boolean,
   isSelf?: boolean,
 ) => {
-  logger.info("userId ", { userId });
+  //logger.info("userId ", { userId });
   const userSocket = userSocketMap.get(userId);
   if (userSocket) {
     const payload: Member = {
@@ -91,7 +91,7 @@ export const emitApprovalToUser = (
       isSelf
     };
     io.to(userSocket.socketId).emit(SOCKET_CHANNEL.JOIN_APPROVE_CHANNEL, payload);
-    logger.info("Emit approval status to new member", payload);
+    //logger.info("Emit approval status to new member", payload);
   } else {
     logger.error("User socket not found", { userId });
   }
@@ -114,9 +114,9 @@ export const emitJoinedSyncToRoom = (
     isSelf
   };
   io.to(roomId).emit(SOCKET_CHANNEL.SYNC_JOINED_LIST, payload);
-  logger.info(
-    `Broadcast: Notified all users in room ${roomId} about user ${userId}'s removal`
-  );
+  //logger.info(
+  //   `Broadcast: Notified all users in room ${roomId} about user ${userId}'s removal`
+  // );
 };
 
 export const emitChatSyncToRoom = (
@@ -137,7 +137,7 @@ export const emitChatSyncToRoom = (
     isRemoved,
   };
   io.to(roomId).emit(SOCKET_CHANNEL.SYNC_CHAT_CHANNEL, payload);
-  logger.info(
-    `Broadcast: Notified all users in room ${roomId} new chat removal`
-  );
+  //logger.info(
+  //   `Broadcast: Notified all users in room ${roomId} new chat removal`
+  // );
 };
