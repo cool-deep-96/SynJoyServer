@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import logger from "../logging/logger";
 
-const dbConnect = async () => {
+export const dbConnect = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URL as string);
         //logger.info('DB connected successfully')
@@ -9,10 +9,6 @@ const dbConnect = async () => {
         logger.error('DB connection failed', error)
     }
 }
-
-export {
-    dbConnect,
-};
 
 
 

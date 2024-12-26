@@ -9,7 +9,7 @@ import fs from 'fs';
 import https from 'https';
 import path from 'path';
 import logger from './logging/logger';
-import { socketServer } from '../sokets2';
+import { socketServer } from './sokets2';
 import { tokenRoutes } from './routes/token_routes';
 import { chatRoutes } from './routes/chat_routes';
 
@@ -75,6 +75,6 @@ app.get('/', (req: Request, res: Response) => {
 
 
 httpsServer.listen(port, () => {
-    //logger.info(`Server is running on ${port}`);
+    logger.info(`Server is running on ${port}`);
 })
 

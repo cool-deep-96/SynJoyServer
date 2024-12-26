@@ -21,7 +21,7 @@ import { IUser } from "../models/User.model";
 export const createChatController = async (
   req: CustomRequest,
   res: Response
-) => {
+): Promise<void> => {
   try {
     const { message } = req.body;
     const user = req.user as TokenData;
@@ -65,7 +65,7 @@ export const createChatController = async (
       room.roomId
     );
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Chat created successfully.",
       data: {
@@ -77,14 +77,16 @@ export const createChatController = async (
         isRemoved: false,
       },
     });
+    return;
   } catch (error) {
     logger.error(
       error instanceof Error ? error.message : "Something Went Wrong"
     );
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Something Went Wrong",
     });
+    return;
   }
 };
 
@@ -92,7 +94,7 @@ export const createChatController = async (
 export const deleteChatController = async (
   req: CustomRequest,
   res: Response
-) => {
+): Promise<void> => {
   try {
     const { messageId } = req.params;
     const user = req.user as TokenData;
@@ -144,18 +146,20 @@ export const deleteChatController = async (
       room.roomId
     );
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Chat deleted successfully.",
     });
+    return;
   } catch (error) {
     logger.error(
       error instanceof Error ? error.message : "Something Went Wrong"
     );
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Something Went Wrong",
     });
+    return;
   }
 };
 
@@ -163,7 +167,7 @@ export const deleteChatController = async (
 export const getChatByRoomIdController = async (
   req: CustomRequest,
   res: Response
-) => {
+): Promise<void> => {
   try {
     const user = req.user as TokenData;
 
@@ -198,26 +202,28 @@ export const getChatByRoomIdController = async (
       isRemoved: false,
     }));
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Chats retrieved successfully.",
       data,
     });
+    return;
   } catch (error) {
     logger.error(
       error instanceof Error ? error.message : "Something Went Wrong"
     );
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Something Went Wrong",
     });
+    return;
   }
 };
 
 export const updateChatController = async (
   req: CustomRequest,
   res: Response
-) => {
+): Promise<void> => {
   try {
     const { messageId } = req.params;
     const { updatedMessage } = req.body;
@@ -279,20 +285,22 @@ export const updateChatController = async (
       data.time.toString(),
       false,
       user.roomId
-    )
+    );
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Chat updated successfully.",
       data: data,
     });
+    return;
   } catch (error) {
     logger.error(
       error instanceof Error ? error.message : "Something Went Wrong"
     );
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Something Went Wrong",
     });
+    return;
   }
 };

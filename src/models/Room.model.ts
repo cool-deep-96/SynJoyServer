@@ -1,7 +1,6 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Document, Schema, Types } from "mongoose";
 import User, { IUser } from "./User.model";
 import { Chat, IChat } from "./Chat.model";
-import { Types } from "mongoose";
 
 export interface IRoom extends Document {
   roomId: string;

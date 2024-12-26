@@ -80,13 +80,12 @@ export const createRoomR = async (req: Request, res: Response) => {
   }
 };
 
-export const getRoomR = async (req: Request, res: Response) => {
+export const getRoomR = async (req: Request, res: Response): Promise<void> => {
   try {
     const { roomId } = req.params;
-    console.log("params",req.params)
     const { room } = await checkingRoomAndUser(roomId, "");
     if (!room) throw new Error(`Room not found for roomId: ${roomId}`);
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: `RoomId : ${roomId} found`,
       payload: {
@@ -94,12 +93,16 @@ export const getRoomR = async (req: Request, res: Response) => {
         owner: (room.ownerId as IUser).userName,
       },
     });
+    return;
   } catch (error) {
     handleError(res, error);
   }
 };
 
-export const requestJoinRoom = async (req: Request, res: Response) => {
+export const requestJoinRoom = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { joinRoomPayload } = req.body;
     validateCreateRoomPayload(joinRoomPayload as JoinRoomPayload);
@@ -123,11 +126,12 @@ export const requestJoinRoom = async (req: Request, res: Response) => {
       const isOwner = (room.ownerId as Types.ObjectId).equals(user.id);
       const tokenData = generateTokenData(user, room.roomId, isOwner, true);
       const jwtToken = generateJwtToken(tokenData);
-      return res.status(200).json({
+      res.status(200).json({
         success: true,
         message: `${user.userName} is already a member`,
         jwtToken,
       });
+      return;
     }
 
     if (!user) {
@@ -159,7 +163,10 @@ export const requestJoinRoom = async (req: Request, res: Response) => {
   }
 };
 
-export const joinRoomR = async (req: CustomRequest, res: Response) => {
+export const joinRoomR = async (
+  req: CustomRequest,
+  res: Response
+): Promise<void> => {
   try {
     const tokenData = req.user as TokenData;
 
@@ -172,9 +179,10 @@ export const joinRoomR = async (req: CustomRequest, res: Response) => {
       const isOwner = (room.ownerId as Types.ObjectId).equals(user.id);
       const tokenData = generateTokenData(user, room.roomId, isOwner, true);
       const jwtToken = generateJwtToken(tokenData);
-      return res
+      res
         .status(200)
         .json({ success: true, message: "Already a member", jwtToken });
+      return;
     }
 
     await requestToJoinRoom(user.id, room.roomId);

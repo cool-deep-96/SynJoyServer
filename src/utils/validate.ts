@@ -1,8 +1,5 @@
-import {
-  CreateRoomPayload,
-  JoinChannelMessage,
-  JoinRoomPayload,
-} from "../common/interfaces";
+import { CreateRoomPayload, JoinChannelMessage, JoinRoomPayload } from "../common/interfaces";
+
 
 export const validateCreateRoomPayload = (
   payload: CreateRoomPayload | JoinRoomPayload | JoinChannelMessage

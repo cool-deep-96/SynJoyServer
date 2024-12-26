@@ -2,5 +2,5 @@
 node_modules
 src/certificate.crt 
 src/private.key
-dist
+dist/*
 src/logging/app.log

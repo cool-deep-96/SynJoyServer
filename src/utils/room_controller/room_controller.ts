@@ -6,7 +6,7 @@ import { Types } from "mongoose";
 import { getRoomById } from "../../services/room_service";
 import { getUserService } from "../../services/user_service";
 import { io } from "../../app";
-import { userSocketMap } from "../../../sokets2";
+import { userSocketMap } from "../../sokets2";
 import { SOCKET_CHANNEL } from "../../common/socket_channels";
 
 export const handleError = (res: Response, error: any) => {

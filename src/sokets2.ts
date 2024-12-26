@@ -1,6 +1,6 @@
-import { SycVideoPayload } from "./src/common/interfaces";
-import { SOCKET_CHANNEL } from "./src/common/socket_channels";
-import logger from "./src/logging/logger";
+import { SycVideoPayload } from "./common/interfaces";
+import { SOCKET_CHANNEL } from "./common/socket_channels";
+import logger from "./logging/logger";
 import { Server } from "socket.io";
 
 export const userSocketMap = new Map<
